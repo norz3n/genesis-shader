@@ -1,0 +1,47 @@
+// Logarithm
+#define InvLog2 3.32192809489f
+
+#define InvPIE 0.318309886142f
+#define InvPIE8 0.039788735767f
+#define InvPIE4 0.079577471535f
+
+#define PI 3.1415926535f
+#define PI_2 (3.1415926535f * 2.0)
+
+#define ALN2I 1.442695022
+
+#define EPSILON 1e-5f
+
+#define MIDPOINT_8_BIT (127.0f / 255.0f)
+
+float  pow2(float x)  { return x * x; }
+float2 pow2(float2 x) { return x * x; }
+float3 pow2(float3 x) { return x * x; }
+float4 pow2(float4 x) { return x * x; }
+
+float  pow5(float x)  { float  xx = x * x; return xx * xx * x; }
+float2 pow5(float2 x) { float2 xx = x * x; return xx * xx * x; }
+float3 pow5(float3 x) { float3 xx = x * x; return xx * xx * x; }
+float4 pow5(float4 x) { float4 xx = x * x; return xx * xx * x; }
+
+float sum(float2 v) { return dot(v, 1.0); }
+float sum(float3 v) { return dot(v, 1.0); }
+float sum(float4 v) { return dot(v, 1.0); }
+
+float  madd(float v , float t1 , float t2 ) { return v * t1 + t2; }
+float2 madd(float2 v, float2 t1, float2 t2) { return v * t1 + t2; }
+float3 madd(float3 v, float3 t1, float3 t2) { return v * t1 + t2; }
+float4 madd(float4 v, float4 t1, float4 t2) { return v * t1 + t2; }
+
+float length2(float2 v) { return dot(v, v); }
+float length2(float3 v) { return dot(v, v); }
+float length2(float4 v) { return dot(v, v); }
+
+float min2(float2 v) { return min(v.x, v.y); }
+float max3(float3 v) { return max(v.x, max(v.y, v.z)); }
+
+// Shader Calculation
+#include "../../genesis.fx"
+#include "../../genesis_shd_adv.conf"
+
+// Sun Light
