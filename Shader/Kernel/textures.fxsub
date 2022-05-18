@@ -1,0 +1,83 @@
+// Texture Loaders
+texture _CameraDepthAttachment : RENDERDEPTHSTENCILTARGET<
+	float2 ViewportRatio = {1.0,1.0};
+	string Format = "D24S8";
+>;
+
+texture _CameraColorAttachment : RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0,1.0};
+	string Format = "A16B16G16R16F";
+>;
+
+texture _CameraColorTexture : RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A16B16G16R16F";
+>;
+
+texture _CameraColorTempTexture : RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A16B16G16R16F";
+>;
+
+texture _CameraSpecularTexture : RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A16B16G16R16F";
+>;
+
+// Samplers
+sampler _CameraSpecularTexture_PointSampler = sampler_state {
+	texture = <_CameraSpecularTexture>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+
+sampler _CameraColorAttachment_PointSampler = sampler_state {
+	texture = <_CameraColorAttachment>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+
+sampler _CameraColorTexture_PointSampler = sampler_state {
+	texture = <_CameraColorTexture>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+
+sampler _CameraColorTexture_LinearSampler = sampler_state {
+	texture = <_CameraColorTexture>;
+	MinFilter = LINEAR; MagFilter = LINEAR; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+
+sampler _CameraColorTempTexture_PointSampler = sampler_state {
+	texture = <_CameraColorTempTexture>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+
+sampler _CameraColorTempTexture_LinearSampler = sampler_state {
+	texture = <_CameraColorTempTexture>;
+	MinFilter = LINEAR; MagFilter = LINEAR; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+
+// Fog Tab Loader
+//  #if FOG_ENABLE
+//  texture FogMap : OFFSCREENRENDERTARGET<
+//  	string Description = "Multi volumetirc fog map for ray";
+//  	float2 ViewportRatio = {1.0, 1.0};
+//  	string Format = "A16B16G16R16F";
+//  	float4 ClearColor = { 0, 0, 0, 0 };
+//  	float ClearDepth = 1.0;
+//  	string DefaultEffect =
+//  		"GroundFog*.*= ./Fog/GroundFog/ground_fog.fx;"
+//  		"AtmosphericFog*.*= ./Fog/AtmosphericFog/atmospheric_fog.fx;"
+//  		"VolumetricCube.pmx =./Fog/VolumetricCube/volumetric_cube.fx;"
+//  		"VolumetricPoint.pmx =./Fog/VolumetricPoint/volumetric_point_with_shadow.fx;"
+//  		"VolumetricSpot.pmx =./Fog/VolumetricSpot/volumetric_spot_with_shadow.fx;"
+//  		"VolumetricSphere.pmx =./Fog/VolumetricSphere/volumetric_sphere.fx;"
+//  		"Time of day.pmx=./Skybox/Time of day/Time of fog with godray.fx;"
+//  		"Time of day fast.pmx=./Skybox/Time of day/Time of fog.fx;"
+//  		"Time of night.pmx=./Skybox/Time of night/Time of fog.fx;"
+//  		"* = hide;";
+//  >;
