@@ -141,13 +141,24 @@ static float3 mColorBalanceIntesity_M = float3(mColorBalanceIntesityRed_M, mColo
 
 #include "Shader/Kernel/textures.fxsub" // MikuMikuEffect Tabs & Default Effect Loader
 
-#include "Shader/Kernel/Color.fxsub"
-#include "Shader/Kernel/Packing.fxsub"
-#include "Shader/Kernel/gbuffer.fxsub"
-#include "Shader/Kernel/BRDF.fxsub"
-#include "Shader/Kernel/ACES.fxsub"
-#include "Shader/Kernel/ColorGrading.fxsub"
-#include "shader/Kernel/VolumeRendering.fxsub"
+#include "Shader/Kernel/Color.fxsub" // Color Calculation
+
+#include "Shader/Kernel/Packing.fxsub" // Decoding Color Schemes
+
+#include "Shader/Kernel/GBuffer/gbuffer.fxsub" // Graphical Buffer
+
+#include "Shader/Kernel/GBuffer/gbuffer_sampler.fxsub" // Graphical Buffer Sampler
+
+#include "Shader/Kernel/GBuffer/DeclareGBufferTexture.fxsub" // Declared GBuffer Texture
+
+#include "Shader/Kernel/BRDF.fxsub" // Bidirectional Reflectanse Distribution Function
+
+#include "Shader/Kernel/ACES.fxsub" // Academy Color Encoding System - Tone-Mapping
+
+#include "Shader/Kernel/ColorGrading.fxsub" // Color Correction & Tone-Mapping
+
+#include "shader/Kernel/VolumeRendering.fxsub" // Depth Calculation
+
 #include "shader/Kernel/ScreenSpaceEffects/ScreenSpaceLighting.fxsub"
 #include "shader/Kernel/Shadow.fxsub"
 #include "shader/Kernel/MonteCarlo.fxsub"

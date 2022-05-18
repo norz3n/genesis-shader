@@ -1,0 +1,62 @@
+float3 SampleOpacityAlbedo(float2 uv)
+{
+	float4 MRT1 = tex2Dlod(Gbuffer1Map, float4(uv, 0, 0));
+	return DecodeGBufferAlbedo(MRT1);
+}
+
+float3 SampleTransparentAlbedo(float2 uv)
+{
+	float4 MRT1 = tex2Dlod(Gbuffer5Map, float4(uv, 0, 0));
+	return DecodeGBufferAlbedo(MRT1);
+}
+
+float3 SampleOpacityEmissive(float2 uv)
+{
+	float4 MRT4 = tex2Dlod(Gbuffer4Map, float4(uv, 0, 0));
+	return DecodeGBufferEmissive(MRT4);
+}
+
+MaterialParam SampleOpacityGbuffer(float2 uv)
+{
+	float4 MRT1 = tex2Dlod(Gbuffer1Map, float4(uv, 0, 0));
+	float4 MRT2 = tex2Dlod(Gbuffer2Map, float4(uv, 0, 0));
+	float4 MRT3 = tex2Dlod(Gbuffer3Map, float4(uv, 0, 0));
+	float4 MRT4 = tex2Dlod(Gbuffer4Map, float4(uv, 0, 0));
+
+	MaterialParam material;
+	DecodeGbuffer(MRT1, MRT2, MRT3, MRT4, material);
+
+	return material;
+}
+
+MaterialParam SampleTransparentGbuffer(float2 uv)
+{
+	float4 MRT5 = tex2Dlod(Gbuffer5Map, float4(uv, 0, 0));
+	float4 MRT6 = tex2Dlod(Gbuffer6Map, float4(uv, 0, 0));
+	float4 MRT7 = tex2Dlod(Gbuffer7Map, float4(uv, 0, 0));
+	float4 MRT8 = tex2Dlod(Gbuffer8Map, float4(uv, 0, 0));
+
+	MaterialParam material;
+	DecodeGbuffer(MRT5, MRT6, MRT7, MRT8, material);
+
+	return material;
+}
+
+float3 SampleTransparentNormal(float2 uv)
+{
+	float4 MRT6 = tex2Dlod(Gbuffer6Map, float4(uv, 0, 0));
+	return UnpackNormalOctQuadEncode(MRT6.xy);
+}
+
+float SampleLinearEyeDepth(float2 uv)
+{
+	return tex2Dlod(Gbuffer6Map, float4(uv, 0, 0)).z;
+}
+
+float3 ComputeViewSpacePosition(float2 uv, float linearEyeDepth)
+{
+	float3 V = normalize(-mul(float4(CoordToPos(uv), 0, 1), matProjectInverse).xyz);
+	float3 viewPosition = V * linearEyeDepth / V.z;
+
+	return viewPosition;
+}

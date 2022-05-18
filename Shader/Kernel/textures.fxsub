@@ -62,13 +62,13 @@ sampler _CameraColorTempTexture_LinearSampler = sampler_state {
 };
 
 // Fog Tab Loader
-//  #if FOG_ENABLE
-//  texture FogMap : OFFSCREENRENDERTARGET<
-//  	string Description = "Multi volumetirc fog map for ray";
-//  	float2 ViewportRatio = {1.0, 1.0};
-//  	string Format = "A16B16G16R16F";
-//  	float4 ClearColor = { 0, 0, 0, 0 };
-//  	float ClearDepth = 1.0;
+#if FOG_ENABLE
+  texture GS_Fog : OFFSCREENRENDERTARGET<
+  	string Description = "Multi Volumetric Fog Map";
+  	float2 ViewportRatio = {1.0, 1.0};
+  	string Format = "A16B16G16R16F";
+  	float4 ClearColor = { 0, 0, 0, 0 };
+  	float ClearDepth = 1.0;
 //  	string DefaultEffect =
 //  		"GroundFog*.*= ./Fog/GroundFog/ground_fog.fx;"
 //  		"AtmosphericFog*.*= ./Fog/AtmosphericFog/atmospheric_fog.fx;"
@@ -80,4 +80,344 @@ sampler _CameraColorTempTexture_LinearSampler = sampler_state {
 //  		"Time of day fast.pmx=./Skybox/Time of day/Time of fog.fx;"
 //  		"Time of night.pmx=./Skybox/Time of night/Time of fog.fx;"
 //  		"* = hide;";
-//  >;
+>;
+sampler _CameraFogTexture_PointSampler = sampler_state {
+	texture = <FogMap>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+#endif
+
+// Multi Light Tab
+#if MULTI_LIGHT_ENABLE
+texture GS_Light: OFFSCREENRENDERTARGET<
+	string Description = "Multi Light Source Map";
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A16B16G16R16F";
+	float4 ClearColor = { 0, 0, 0, 0 };
+	float ClearDepth = 1.0;
+//	string DefaultEffect =
+//			"DirectionalLight.pmx =./Lighting/DirectionalLight/directional_lighting.fx;"
+//			"PointLight.pmx =./Lighting/PointLight/Default/point_lighting.fx;"
+//			"PointLightIES.pmx =./Lighting/PointLightIES/Default/IES_lighting.fx;"
+//			"SpotLight.pmx =./Lighting/SpotLight/Default/spot_lighting.fx;"
+//			"SpotLightIES.pmx =./Lighting/SpotLightIES/Default/IES_lighting.fx;"
+//			"DiskLight.pmx =./Lighting/DiskLight/Default/disk_lighting.fx;"
+//			"SphereLight.pmx =./Lighting/SphereLight/Default/sphere_lighting.fx;"
+//			"TubeLight.pmx =./Lighting/TubeLight/Default/tube_lighting.fx;"
+//			"LED.pmx =./Lighting/RectangleLight/Default LED/rectangle_lighting.fx;"
+//			"RectangleLight.pmx =./Lighting/RectangleLight/Default/rectangle_lighting.fx;"
+//			"* = hide;";
+>;
+shared texture LightSpecMap : RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0,1.0};
+	string Format = "A16B16G16R16F";
+>;
+shared texture LightAlphaMap : RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0,1.0};
+	string Format = "A16B16G16R16F";
+>;
+sampler _CameraLightingTexture0_PointSampler = sampler_state {
+	texture = <LightMap>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler _CameraLightingTexture1_PointSampler = sampler_state {
+	texture = <LightSpecMap>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler _CameraLightingTexture2_PointSampler = sampler_state {
+	texture = <LightAlphaMap>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+#endif
+
+// Enviroment Light Tab
+#if IBL_QUALITY
+texture GS_EnvLight: OFFSCREENRENDERTARGET<
+	string Description = "Image-based-lighting map for ray";
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A16B16G16R16F";
+	float4 ClearColor = { 0, MIDPOINT_8_BIT, 0, MIDPOINT_8_BIT };
+	float ClearDepth = 1.0;
+//		string DefaultEffect =
+//			"Sky with box.pmx =./Skybox/Image Based Lighting - Disable.fx;"
+//			"Image Based Sky.pmx =./Skybox/Image Based Lighting - Disable.fx;"
+//			"Time of day.pmx=./Skybox/Time of day/Time of lighting.fx;"
+//			"Time of night.pmx=./Skybox/Time of night/Time of lighting.fx;"
+//			"*= hide;";
+>;
+shared texture EnvLightAlphaMap: RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A16B16G16R16F";
+>;
+sampler _CameraEnvLightingTexture0_PointSampler = sampler_state {
+	texture = <EnvLightMap>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler _CameraEnvLightingTexture1_PointSampler = sampler_state {
+	texture = <EnvLightAlphaMap>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+#endif
+
+// Material Tab
+shared texture MaterialMap: OFFSCREENRENDERTARGET<
+	string Description = "Material cache map for ray";
+	float2 ViewportRatio = {1.0, 1.0};
+	float4 ClearColor = { 0, 0, 0, 0 };
+	float ClearDepth = 1.0;
+	string Format = "A8R8G8B8";
+//		string DefaultEffect =
+//			"self = hide;"
+//			"*fog.pmx=hide;"
+//			"*controller*.pmx=hide;"
+//			"*editor*.pmx=hide;"
+//			"Volumetric*.pmx=hide;"
+//			"Sky with box.pmx = ./materials/material_skybox.fx;"
+//			"Time of day.pmx = ./materials/material_skybox.fx;"
+//			"Time of night.pmx = ./materials/material_skybox.fx;"
+//			"Image Based Sky.pmx = ./materials/material_skybox.fx;"
+//			"LED*.pmx =./materials/Video/material_screen_led.fx;"
+//			"*Light*.pmx =./materials/Emissive/material_lighting.fx;"
+//			"*.pmd = ./materials/material_2.0.fx;"
+//			"*.pmx = ./materials/material_2.0.fx;"
+//			"*.x = hide;"
+//			"* = hide;";
+>;
+
+// Ambient Occlusion Tab
+#if HBAOP_QUALITY
+texture GS_HBAOP : OFFSCREENRENDERTARGET<
+	string Description = "SSAO visibility for ray";
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A8";
+	float4 ClearColor = { 1, 1, 1, 1 };
+	float ClearDepth = 1.0;
+//			"self = hide;"
+//			"*fog.pmx=hide;"
+//			"*controller*.pmx=hide;"
+//			"*editor*.pmx=hide;"
+//			"Volumetric*.pmx=hide;"
+//			"*.*=shadow/HBAO+ visibility 1.0.fx;";
+>;
+sampler HBAOPMap_PointSampler = sampler_state {
+	texture = <SSAOMap>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+shared texture _CameraOcclusionTexture : RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A8R8G8B8";
+>;
+texture _CameraOcclusionTextureTemp : RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A8R8G8B8";
+>;
+sampler _CameraOcclusionTexture_PointSampler = sampler_state {
+	texture = <_CameraOcclusionTexture>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP;  AddressV = CLAMP;
+};
+sampler _CameraOcclusionTextureTemp_PointSampler = sampler_state {
+	texture = <_CameraOcclusionTextureTemp>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP;  AddressV = CLAMP;
+};
+#endif
+
+// PSSM
+#if SUN_LIGHT && CASCADE_SUN_SHADOW_MAP_QUALITY
+shared texture PSSM1 : OFFSCREENRENDERTARGET<
+	string Description = "Cascade Shadow Map";
+	int2 Dimensions = { CASCADE_SHADOW_MAP_SIZE, CASCADE_SHADOW_MAP_SIZE };
+	string Format = "R32F";
+	float4 ClearColor = { 0, 0, 0, 0 };
+	float ClearDepth = 0.0;
+//		string DefaultEffect =
+//			"self = hide;"
+//			"*fog.pmx=hide;"
+//			"*controller*.pmx=hide;"
+//			"*editor*.pmx=hide;"
+//			"Volumetric*.pmx=hide;"
+//			"*.pmx=shadow/PSSM1.fx;"
+//			"*.pmd=shadow/PSSM1.fx;"
+//			"*.x=hide;";
+>;
+shared texture PSSM2 : OFFSCREENRENDERTARGET<
+	string Description = "Cascade Shadow Map";
+	int2 Dimensions = { CASCADE_SHADOW_MAP_SIZE, CASCADE_SHADOW_MAP_SIZE };
+	string Format = "R32F";
+	float4 ClearColor = { 0, 0, 0, 0 };
+	float ClearDepth = 0.0;
+//		string DefaultEffect =
+//			"self = hide;"
+//			"*fog.pmx=hide;"
+//			"*controller*.pmx=hide;"
+//			"*editor*.pmx=hide;"
+//			"Volumetric*.pmx=hide;"
+//			"*.pmx=shadow/PSSM2.fx;"
+//			"*.pmd=shadow/PSSM2.fx;"
+//			"*.x=hide;";
+>;
+shared texture PSSM3 : OFFSCREENRENDERTARGET<
+	string Description = "Cascade Shadow Map";
+	int2 Dimensions = { CASCADE_SHADOW_MAP_SIZE, CASCADE_SHADOW_MAP_SIZE };
+	string Format = "R32F";
+	float4 ClearColor = { 0, 0, 0, 0 };
+	float ClearDepth = 0.0;
+//		string DefaultEffect =
+//			"self = hide;"
+//			"*fog.pmx=hide;"
+//			"*controller*.pmx=hide;"
+//			"*editor*.pmx=hide;"
+//			"Volumetric*.pmx=hide;"
+//			"*.pmx=shadow/PSSM3.fx;"
+//			"*.pmd=shadow/PSSM3.fx;"
+//			"*.x=hide;";
+>;
+shared texture PSSM4 : OFFSCREENRENDERTARGET<
+	string Description = "Cascade Shadow Map";
+	int2 Dimensions = { CASCADE_SHADOW_MAP_SIZE, CASCADE_SHADOW_MAP_SIZE };
+	string Format = "R32F";
+	float4 ClearColor = { 0, 0, 0, 0 };
+	float ClearDepth = 0.0;
+//		string DefaultEffect =
+//			"self = hide;"
+//			"*fog.pmx=hide;"
+//			"*controller*.pmx=hide;"
+//			"*editor*.pmx=hide;"
+//			"Volumetric*.pmx=hide;"
+//			"*.pmx=shadow/PSSM4.fx;"
+//			"*.pmd=shadow/PSSM4.fx;"
+//			"*.x=hide;";
+>;
+sampler _PSSM1_LinearSampler = sampler_state {
+	texture = <PSSM1>;
+	MinFilter = LINEAR; MagFilter = LINEAR; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler _PSSM2_LinearSampler = sampler_state {
+	texture = <PSSM2>;
+	MinFilter = LINEAR; MagFilter = LINEAR; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler _PSSM3_LinearSampler = sampler_state {
+	texture = <PSSM3>;
+	MinFilter = LINEAR; MagFilter = LINEAR; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler _PSSM4_LinearSampler = sampler_state {
+	texture = <PSSM4>;
+	MinFilter = LINEAR; MagFilter = LINEAR; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+texture _CameraShadowTexture : RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "L8";
+>;
+texture _CameraShadowTextureTemp : RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "L8";
+>;
+sampler _CameraShadowTexture_PointSampler = sampler_state {
+	texture = <_CameraShadowTexture>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler _CameraShadowTextureTemp_PointSampler = sampler_state {
+	texture = <_CameraShadowTextureTemp>;
+	MinFilter = POINT; MagFilter = POINT; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+#endif
+
+// GBuffer Texture
+shared texture Gbuffer2RT: RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A32B32G32R32F";
+>;
+shared texture Gbuffer3RT: RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A8R8G8B8";
+>;
+shared texture Gbuffer4RT: RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A16B16G16R16F";
+>;
+shared texture Gbuffer5RT: RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A8R8G8B8";
+>;
+shared texture Gbuffer6RT: RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A32B32G32R32F";
+>;
+shared texture Gbuffer7RT: RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A8R8G8B8";
+>;
+shared texture Gbuffer8RT: RENDERCOLORTARGET<
+	float2 ViewportRatio = {1.0, 1.0};
+	string Format = "A16B16G16R16F";
+>;
+
+// GBuffer Texture Sampler
+sampler Gbuffer1Map = sampler_state {
+	texture = <MaterialMap>;
+	MinFilter = NONE; MagFilter = NONE; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler Gbuffer2Map = sampler_state {
+	texture = <Gbuffer2RT>;
+	MinFilter = NONE; MagFilter = NONE; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler Gbuffer3Map = sampler_state {
+	texture = <Gbuffer3RT>;
+	MinFilter = NONE; MagFilter = NONE; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler Gbuffer4Map = sampler_state {
+	texture = <Gbuffer4RT>;
+	MinFilter = NONE; MagFilter = NONE; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler Gbuffer5Map = sampler_state {
+	texture = <Gbuffer5RT>;
+	MinFilter = NONE; MagFilter = NONE; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler Gbuffer6Map = sampler_state {
+	texture = <Gbuffer6RT>;
+	MinFilter = NONE; MagFilter = NONE; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler Gbuffer7Map = sampler_state {
+	texture = <Gbuffer7RT>;
+	MinFilter = NONE; MagFilter = NONE; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+sampler Gbuffer8Map = sampler_state {
+	texture = <Gbuffer8RT>;
+	MinFilter = NONE; MagFilter = NONE; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+
+// Skin Lut
+shared texture _PreIntegratedSkinLut<string ResourceName = "shader/textures/shadowLUT.bmp"; int Miplevels = 1;>; 
+sampler _PreIntegratedSkinLut_LinearSampler = sampler_state
+{
+	texture = <_PreIntegratedSkinLut>;
+	MinFilter = LINEAR; MagFilter = LINEAR; MipFilter = NONE;
+	AddressU = CLAMP; AddressV = CLAMP;
+};
+
+// Camera Viewports
+static const float4 _CameraColorTexture_TexelSize = float4(1.0f / ViewportSize, ViewportSize);
+static const float4 _CameraColorAttachment_TexelSize = float4(1.0f / ViewportSize, ViewportSize);
+static const float4 _CameraShadowTexture_TexelSize = float4(1.0f / ViewportSize, ViewportSize);

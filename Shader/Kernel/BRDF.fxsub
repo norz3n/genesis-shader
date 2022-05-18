@@ -1,0 +1,425 @@
+float smoothnessToPerceptualRoughness(float smoothness)
+{
+	return 1.0 - smoothness;
+}
+
+float PerceptualRoughnessToSmoothness(float perceptualRoughness)
+{
+	return 1.0 - perceptualRoughness;
+}
+
+float PerceptualRoughnessToRoughness(float perceptualRoughness)
+{
+	return perceptualRoughness * perceptualRoughness;
+}
+
+float RoughnessToPerceptualRoughness(float roughness)
+{
+	return sqrt(roughness);
+}
+
+float PerceptualSmoothnessToRoughness(float perceptualSmoothness)
+{
+	return (1.0 - perceptualSmoothness) * (1.0 - perceptualSmoothness);
+}
+
+float RoughnessToPerceptualSmoothness(float roughness)
+{
+	return 1.0 - sqrt(roughness);
+}
+
+float SmoothnessToRoughness(float smoothness)
+{
+	return (1.0f - smoothness) * (1.0f - smoothness);
+}
+
+float RoughnessToSmoothness(float roughness)
+{
+	return 1.0f - sqrt(roughness);
+}
+
+float fresnelSchlick(float f0, float f9, float vh)
+{
+	return lerp(f0, f9, pow5(1 - vh));
+}
+
+float3 fresnelSchlick(float3 f0, float3 f9, float vh)
+{
+	return lerp(f0, f9, pow5(1 - vh));
+}
+
+float EnvironmentMip(int miplevel, float smoothness)
+{
+	return lerp(miplevel, 0, smoothness * smoothness);
+}
+
+float3 EnvironmentReflect(float3 normal, float3 view)
+{
+	return reflect(-view, normal);
+}
+
+float3 FresnelSchlickGlass(float3 N, float3 V, float smoothness, float3 specular)
+{
+	return lerp(specular, 1.0, pow5(1 - saturate(dot(N, V))) / (40 - 39 * smoothness));
+}
+
+float FresnelSchlickClearCoat(float nv, float smoothness, float specular)
+{
+	return specular + (max(smoothness, specular) - specular) * pow5(1 - nv);
+}
+
+float3 EnvironmentSpecularCloth(float nv, float smoothness, float3 specular)
+{
+	const float4 c0 = float4(0.24,  0.93, 0.01, 0.20);
+	const float4 c1 = float4(2.00, -1.30, 0.40, 0.03);
+
+	float s = 1.0 - nv;
+	float e = s - c0.y;
+	float g = c0.x * exp2(-(e * e) / (2.0 * c0.z)) + s * c0.w;
+	float n = (1.0 - smoothness) * c1.x + c1.y;
+	float r = max(1.0 - n * n, c1.z) * g;
+
+	return specular * r + r * c1.w;
+}
+
+float3 EnvironmentSpecularLUT(sampler lut, float nv, float smoothness, float3 specular)
+{
+	float2 brdf = tex2Dlod(lut, float4(nv, smoothness, 0, 0)).rg;
+	return specular * brdf.r + brdf.g;	
+}
+
+float3 EnvironmentSpecularUnreal4(float nv, float smoothness, float3 specular)
+{
+	float4 c0 = float4(-1, -0.0275, -0.572, 0.022);
+	float4 c1 = float4(1, 0.0425, 1.04, -0.04);
+	float4 r = (1.0 - smoothness) * c0 + c1;
+	float a004 = min(r.x * r.x, exp2(-9.28 * nv)) * r.x + r.y;
+	float2 AB = float2(-1.04, 1.04) * a004 + r.zw;
+	return specular * AB.x + AB.y;
+}
+
+float EnvironmentSpecularUnreal4(float nv, float smoothness)
+{
+	const float2 c0 = float2(-1, -0.0275);
+	const float2 c1 = float2(1, 0.0425);
+	float2 r = (1.0 - smoothness) * c0 + c1;
+	return min(r.x * r.x, exp2(-9.28 * nv)) * r.x + r.y;
+}
+
+float ComputeAmbientMicroOcclusion(float nl, float ao)
+{
+	float aperture = 2.0 * ao;
+	float shadow = saturate(abs(nl) + aperture - 1.0);
+	return shadow;
+}
+
+float ComputeSpecularOcclusion(float nv, float ao, float smoothness)
+{
+	return saturate(pow(max(nv + ao, 0), smoothness) - 1 + ao);
+}
+
+float ComputeSpecularMicroOcclusion(float3 f0)
+{
+	return saturate(dot(f0, 0.33333h) * 50);
+}
+
+float3 GTAOMultiBounce(float visibility, float3 albedo)
+{
+	float3 A =  2.0404 * albedo - 0.3324;
+	float3 B = -4.7951 * albedo + 0.6417;
+	float3 C =  2.7552 * albedo + 0.6903;
+
+	float x = visibility;
+	return max(x, ((x * A + B) * x + C) * x);
+}
+
+float3 SubsurfaceShadingPennerSkin(MaterialParam material, float3 N, float3 L, float3 V)
+{
+	float nl = dot(N, L);
+
+	float pndl = saturate( nl);
+	float nndl = saturate(-nl);
+
+	float ir = material.customDataA;
+	float brdf = pndl;
+	float3 sss = pow2(1.0 - pndl) * pow(1.0-nndl,3.0 / (ir + 0.001)) * saturate(ir - 0.04);
+
+	return sss + saturate(dot(V, -normalize(L + N * (1 - ir))));
+}
+
+float3 SubsurfaceShadingPreIntegratedSkinLUT(MaterialParam material, float3 N, float3 L)
+{
+	return pow(tex2Dlod(_PreIntegratedSkinLut_LinearSampler, float4(dot(N, L) * 0.55 + 0.45, material.customDataA, 0, 0)).rgb, 2.2);
+}
+
+float BurleyBRDF(float nl, float nv, float vh, float roughness)
+{
+	float energyBias = 0.5 * roughness;
+	float energyFactor = lerp(1, 1 / 1.51, roughness);
+
+	float Fd90 = energyBias + 2.0 * vh * vh * roughness;
+	float FdV = lerp(1, Fd90, pow5(1 - max(nv, 0.1)));
+	float FdL = lerp(1, Fd90, pow5(1 - nl));
+
+	return FdV * FdL * energyFactor * saturate(nl);
+}
+
+float OrenNayarBRDF(float nl, float nv, float lv, float roughness)
+{
+	float m2 = roughness * roughness;
+
+	float s = lv - nl * nv;
+	float t = (s <= 0.0) ? 1 : max(max(nl, nv), 1e-6);
+	float A = 1.0 / (1.0 + (0.5 - 2.0 / (3.0 * PI)) * m2);
+	float B = m2 * A;
+
+	return max(0, A + B * (s / t)) * saturate(nl);
+}
+
+float3 ToonBasedShading(float nl, float vh, float nv, float3 shadowColor, float3 specular, float shadow, float roughness, float hardness)
+{
+	float Fd90 = (0.5 + 2.0 * vh * vh) * roughness;
+	float FdV = lerp(1, Fd90, pow5(1 - max(nv, 0.1)));
+
+	float3 f0 = specular;
+	float3 f90 = ComputeSpecularMicroOcclusion(f0);
+	float3 fresnel = fresnelSchlick(f0, f90, vh);
+
+	return lerp(shadowColor, 1.0, saturate(nl * hardness + 1 - hardness) * shadow) * (1  - fresnel);
+}
+
+float3 CelShading(float nl, float vh, float nv, float3 shadowColor, float3 specular, float shadow, float roughness, float threshold)
+{
+	float bias = 0.02;
+	float x = threshold;
+	float darkness = (nl * 0.5 + 0.5) * shadow;
+	float3 I = lerp(shadowColor, 1.0, smoothstep(x - bias, x, darkness));
+
+	return I;
+}
+
+float3 SpecularBRDF_KajiyaKay(float3 T, float3 V, float3 L, float exponent, float3 specular)
+{
+    float3 H = normalize(L + V);
+
+    float TdotH = dot(T, H);
+    float sinTHSq = saturate(1.0 - TdotH * TdotH);
+
+    float dirAttn = saturate(TdotH + 1.0);
+    float n = exponent;
+    float norm = (n + 2) * rcp(2 * PI);
+
+    return dirAttn * norm * pow(sinTHSq, 0.5 * n) * specular;
+}
+
+float3 SpecularBRDF_Blinn(float nh, float nl, float vh, float nv, float smoothness, float3 specular, float NormalizationFactor)
+{
+	float alpha = exp2(10 * smoothness + 1);
+	float D = ((alpha + 2) / 8) * pow(nh, alpha) * NormalizationFactor;
+	return D;
+}
+
+float3 SpecularBRDF_GGX(float nh, float nl, float vh, float nv, float roughness, float3 specular, float NormalizationFactor)
+{
+	float m2 = roughness * roughness;
+	float spec = (nh * m2 - nh) * nh + 1;
+	spec = m2 / (spec * spec) * NormalizationFactor;
+
+	float Gv = nl * (nv * (1 - roughness) + roughness);
+	float Gl = nv * (nl * (1 - roughness) + roughness);
+	spec *= 0.5 / (Gv + Gl);
+
+	float3 f0 = specular;
+	float3 f90 = ComputeSpecularMicroOcclusion(f0);
+	float3 fresnel = fresnelSchlick(f0, f90, vh);
+
+	return spec * fresnel;
+}
+
+float3 SpecularBRDF_GGXAniso(float3 N, float3 H, float nh, float nl, float vh, float nv, float3 specular, float roughness, float anisotropic, float3 shift, float NormalizationFactor)
+{
+	float3 X = normalize(cross(N, mul(float3(0,1,0), (float3x3)matView)) + N * shift.r);
+	float3 Y = normalize(cross(X, N) - N * shift.r);
+
+	float aspect = rsqrt(1.0 - anisotropic * 0.9);
+	float ax = 1.0 / (roughness * aspect);
+	float ay = aspect / roughness;
+
+	float spec = pow2(dot(X, H) * ax) + pow2(dot(Y, H) * ay) + nh * nh;
+	spec = (ax * ay) / (spec * spec) * NormalizationFactor;
+
+	float Gv = nl * (nv * (1 - roughness) + roughness);
+	float Gl = nv * (nl * (1 - roughness) + roughness);
+	spec *= 0.5 / (Gv + Gl);
+
+	float3 f0 = specular;
+	float3 f90 = ComputeSpecularMicroOcclusion(f0);
+	float3 fresnel = fresnelSchlick(f0, f90, vh);
+
+	return spec * fresnel;
+}
+
+float3 SpecularBRDF_Sheen(float nh, float nl, float vh, float nv, float roughness, float3 specular, float NormalizationFactor)
+{
+	float sin2 = (1 - nh * nh);
+	float spec = (2 + 1 / roughness) * pow(sin2, 0.5 / roughness) / (2 * NormalizationFactor);
+
+	float G = 4 * (nl + nv - nl * nv);
+	spec /= G;
+
+	float3 f0 = specular;
+	float3 fresnel = fresnelSchlick(f0, 1.0, vh);
+
+	return fresnel * spec;
+}
+
+float3 SpecularBRDF_Velvet(float nh, float nl, float vh, float nv, float roughness, float3 specular, float NormalizationFactor)
+{
+	float A = 4;
+	float nh2 = nh * nh;
+	float spec = nh2 / (1 - nh2);
+	float sin4 = pow2(1.0 - nh2);
+	spec = (1 + A * exp(-spec / roughness) / sin4) / ((1 + A * roughness) * NormalizationFactor);
+
+	float G = 4 * (nl + nv - nl * nv);
+	spec /= G;
+
+	float3 f0 = specular;
+	float3 fresnel = fresnelSchlick(f0, 1.0, vh);
+
+	return fresnel * spec;
+}
+
+float4 SpecularBRDF_ClearCoat(float nh, float nl, float vh, float nv, float roughness, float specular, float NormalizationFactor)
+{
+	float m2 = roughness * roughness;
+	float spec = (nh * m2 - nh) * nh + 1;
+	spec = m2 / (spec * spec) * NormalizationFactor;
+
+	float G = (4 * vh * vh + 1e-5);
+	spec /= G;
+
+	float fresnel = fresnelSchlick(specular, 1.0, vh);
+	return float4(spec, spec, spec, fresnel);
+}
+
+float3 ClothShading(MaterialParam material, float nh, float nl, float vh, float nv, float roughness, float normalizeFactor)
+{
+	float3 spec1 = SpecularBRDF_GGX(nh, nl, vh, nv, roughness, material.specular, normalizeFactor);
+	float3 spec2 = SpecularBRDF_Sheen(nh, nl, vh, nv, roughness, material.customDataB, normalizeFactor);
+	float3 spec = lerp(spec1, spec2, material.customDataA);
+	return spec;
+}
+
+float3 ClearCoatShading(MaterialParam material, float nh, float nl, float vh, float nv, float roughness, float normalizeFactor)
+{
+	float clearcoat = max(SmoothnessToRoughness(material.customDataA), 0.001);
+	float3 spec1 = SpecularBRDF_GGX(nh, nl, vh, nv, roughness, material.specular, normalizeFactor);
+	float4 spec2 = SpecularBRDF_ClearCoat(nh, nl, vh, nv, clearcoat, 0.04, normalizeFactor);
+	return lerp(spec1, spec2.rgb, spec2.a);
+}
+
+float3 SubsurfaceShading(MaterialParam material, float3 N, float3 L, float3 V)
+{
+	if (material.lightModel == SHADINGMODELID_SUBSURFACE)
+		return SubsurfaceShadingPennerSkin(material, N, L, V) *  material.customDataB;
+	else if (material.lightModel == SHADINGMODELID_HAIR)
+		return SubsurfaceShadingPennerSkin(material, N, L, V) *  material.albedo * material.albedo;
+	else
+		return 0;
+}
+
+float2x3 SurfaceEnergy(MaterialParam material, float3 N, float3 L, float3 V, float shadow, float normalizeFactor = 1.0)
+{
+	float3 H = normalize(V + L);
+
+	float nh = saturate(dot(N, H));
+	float nl = saturate(dot(N, L));
+	float vh = saturate(dot(V, H));
+	float nv = abs(dot(N, V)) + 1e-5h;
+	float lv = saturate(dot(L, V));
+
+	float roughness = max(PerceptualRoughnessToRoughness(SmoothnessToPerceptualRoughness(material.smoothness)), 0.001);
+
+	float3 diffuse = 0;
+
+	[branch]
+	if (material.lightModel == SHADINGMODELID_SKIN)
+		diffuse = SubsurfaceShadingPreIntegratedSkinLUT(material, N, L) * shadow;
+#if TOON_ENABLE
+	else if (material.lightModel == SHADINGMODELID_CEL)
+		diffuse = CelShading(dot(N, L), vh, nv, material.customDataB, material.specular, shadow, roughness, material.customDataA);
+	else if (material.lightModel == SHADINGMODELID_TONEBASED)
+		diffuse = ToonBasedShading(dot(N, L), vh, nv, material.customDataB, material.specular, shadow, roughness, material.customDataA);
+#endif
+	else
+		diffuse = (BurleyBRDF(nl, nv, vh, roughness) + SubsurfaceShading(material, N, L, V)) * shadow;
+
+	float3 specular = 0;
+
+	[branch]
+	if (material.lightModel == SHADINGMODELID_CLOTH)
+		specular = ClothShading(material, nh, nl, vh, nv, roughness, normalizeFactor);
+	else if (material.lightModel == SHADINGMODELID_CLEAR_COAT)
+		specular = ClearCoatShading(material, nh, nl, vh, nv, roughness, normalizeFactor);
+	else if (material.lightModel == SHADINGMODELID_GLASS)
+		specular = SpecularBRDF_Blinn(nh, nl, vh, nv, material.smoothness, material.specular, normalizeFactor);
+	else if (material.lightModel == SHADINGMODELID_ANISOTROPY)
+		specular = SpecularBRDF_GGXAniso(N, H, nh, nl, vh, nv, material.specular, roughness, material.customDataA, material.customDataB.r * 2 - 1, normalizeFactor);
+	else if (material.lightModel == SHADINGMODELID_HAIR)
+	{
+		float shift = material.customDataB.r * 2 - 1;
+		float3 X = normalize(cross(N, mul(float3(0,1,0), (float3x3)matView)) + N * shift);
+		float3 Y = normalize(cross(X, N) - N * shift);
+		float3 fresnel = fresnelSchlick(material.specular, 1, vh);
+
+		float3 anisotropic = SpecularBRDF_GGXAniso(N, H, nh, nl, vh, nv, material.specular, roughness, material.customDataB.g, shift, normalizeFactor);
+		specular = lerp(anisotropic, SpecularBRDF_KajiyaKay(Y, V, L, exp2(10 * material.customDataB.b + 1), 1), fresnel);
+	}
+	else
+		specular = SpecularBRDF_GGX(nh, nl, vh, nv, roughness, material.specular, normalizeFactor);
+
+	diffuse *= ComputeAmbientMicroOcclusion(nl, material.visibility);
+	specular *= ComputeSpecularOcclusion(nv, material.visibility, material.smoothness);
+
+	return float2x3(diffuse, specular * nl * shadow);
+}
+
+float2x3 SurfaceEnergy(MaterialParam material, float3 N, float3 Ld, float3 Ls, float3 V, float normalizeFactor = 1.0)
+{
+	float3 H = normalize(V + Ls);
+
+	float nh  = saturate(dot(N, H));
+	float nld = saturate(dot(N, Ld));
+	float nls = saturate(dot(N, Ls));
+	float vh  = saturate(dot(V, H));
+	float nv  = abs(dot(N, V)) + 1e-5h;
+
+	float roughness = max(PerceptualRoughnessToRoughness(SmoothnessToPerceptualRoughness(material.smoothness)), 0.001);
+
+	float3 diffuse = 0;
+
+	if (material.lightModel == SHADINGMODELID_SKIN)
+		diffuse = SubsurfaceShadingPreIntegratedSkinLUT(material, N, Ld);
+	else
+		diffuse = BurleyBRDF(nld, nv, vh, roughness) + SubsurfaceShading(material, N, Ld, V);
+
+	float3 specular = 0;
+
+	[branch]
+	if (material.lightModel == SHADINGMODELID_CLOTH)
+		specular = ClothShading(material, nh, nls, vh, nv, roughness, normalizeFactor);
+	else if (material.lightModel == SHADINGMODELID_CLEAR_COAT)
+		specular = ClearCoatShading(material, nh, nls, vh, nv, roughness, normalizeFactor);
+	else if (material.lightModel == SHADINGMODELID_GLASS)
+		specular = SpecularBRDF_Blinn(nh, nls, vh, nv, material.smoothness, material.specular, normalizeFactor);
+	else if (material.lightModel == SHADINGMODELID_ANISOTROPY)
+		specular = SpecularBRDF_GGXAniso(N, H, nh, nls, vh, nv, material.specular, roughness, material.customDataA, material.customDataB, normalizeFactor);
+	else
+		specular = SpecularBRDF_GGX(nh, nls, vh, nv, roughness, material.specular, normalizeFactor);
+
+	diffuse *= ComputeAmbientMicroOcclusion(nld, material.visibility);
+	specular *= ComputeSpecularOcclusion(nv, material.visibility, material.smoothness) * nls;
+
+	return float2x3(diffuse, specular);
+}

@@ -1,0 +1,109 @@
+// Shading Models ID
+#define SHADINGMODELID_DEFAULT    0
+#define SHADINGMODELID_SKIN       1
+#define SHADINGMODELID_EMISSIVE   2
+#define SHADINGMODELID_ANISOTROPY 3
+#define SHADINGMODELID_GLASS      4
+#define SHADINGMODELID_CLOTH      5
+#define SHADINGMODELID_CLEAR_COAT 6
+#define SHADINGMODELID_SUBSURFACE 7
+#define SHADINGMODELID_CEL        8
+#define SHADINGMODELID_TONEBASED  9
+#define SHADINGMODELID_HAIR		  10
+#define SHADINGMODELID_MASK       11
+
+// Fractional Functions
+#define MAX_FRACTIONAL_8_BIT       (255.0f / 256.0f)
+#define TWO_BITS_EXTRACTION_FACTOR (3.0f + MAX_FRACTIONAL_8_BIT)
+
+// Material Parameters
+struct MaterialParam
+{
+	float3 normal;
+	float3 albedo;
+	float3 specular;
+	float smoothness;
+	float alpha;
+	float visibility;
+	float customDataA;
+	float3 customDataB;
+	float linearDepth;
+	int lightModel;
+};
+
+// GBuffer Parameters
+struct GbufferParam
+{
+	float4 buffer1 : COLOR0;
+	float4 buffer2 : COLOR1;
+	float4 buffer3 : COLOR2;
+	float4 buffer4 : COLOR3;
+};
+
+// GBuffer Decoding
+void DecodeGbuffer(float4 buffer1, float4 buffer2, float4 buffer3, float4 buffer4, out MaterialParam material,)
+{
+	material.albedo = buffer1.xyz;
+	material.smoothness = buffer1.w;
+
+	material.normal = UnpackNormalOctQuadEncode(buffer2.xy);
+	material.linearDepth = buffer2.z;
+	material.visibility = buffer2.w;
+
+	material.specular = buffer3.xyz;
+	material.customDataA = buffer3.w;
+
+	material.customDataB = buffer4.xyz;
+
+	material.alpha = frac(buffer4.w) / MAX_FRACTIONAL_8_BIT;
+
+	material.lightModel = (int)floor(buffer4.w);
+
+	if (material.lightModel >= SHADINGMODELID_MASK)
+		material.lightModel = SHADINGMODELID_DEFAULT;
+}
+// Albedo GBuffer Decoding
+float3 DecodeGBufferAlbedo(float4 buffer1)
+{
+	return buffer1.rgb;
+}
+// Normals GBuffer Decoding
+float3 DecodeGBufferNormal(float4 buffer2)
+{
+	return UnpackNormalOctQuadEncode(buffer2.xy);
+}
+
+// Light GBuffer Decoding
+int DecodeLightModel(float4 buffer4)
+{
+	int lightModel = (int)floor(buffer4.w);
+	return lightModel;
+}
+
+// Emissive Intensity GBuffer Decoding
+float DecodeEmissiveIntensity(float4 buffer4)
+{
+	return buffer4.y;
+}
+
+// Emissive GBuffer Decoding
+float3 DecodeGBufferEmissive(float4 buffer4)
+{
+	int lightModel = DecodeLightModel(buffer4);
+	if (lightModel != SHADINGMODELID_EMISSIVE)
+		return 0;
+	else
+		return buffer4.xyz;
+}
+
+// Getting Projections Constant
+float4 GetProjConstant()
+{
+	return float4(2, -2, -1, 1) * float2(matProjectInverse._11, matProjectInverse._22).xyxy / matProjectInverse._43;
+}
+
+// Getting View Positions
+float3 GetViewPosition(float4 projConstant, float2 coord, float depth)
+{
+	return float3(coord * projConstant.xy + projConstant.zw, 1) * depth;
+}

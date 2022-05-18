@@ -1,0 +1,231 @@
+float3 noise3(float2 seed)
+{
+	return frac(sin(dot(seed.xy, float2(34.483, 89.637))) * float3(29156.4765, 38273.5639, 47843.7546));
+}
+
+float3 ColorBanding(float2 uv)
+{
+	float3 noise = noise3(uv) + noise3(uv + 0.5789) - 0.5;
+	return noise / 255.0;
+}
+
+float3 ColorDithering(float3 color, float2 uv)
+{
+	color += ColorBanding(uv);
+	return color;
+}
+
+float3 ColorVignette(float3 color, float2 coord)		
+{		
+	float L = length(coord * 2 - 1);		
+	return color * smoothstep(mVignetteOuter - mVignette * 2, mVignetteInner - mVignette, L);		
+}
+
+float3 ColorVibrance(float3 color, float coff)
+{
+	float3 lumCoeff = float3(0.212656, 0.715158, 0.072186);
+	float luma = dot(lumCoeff, color);
+	float max_color = max(color.r, max(color.g,color.b));
+	float min_color = min(color.r, min(color.g,color.b));
+	float color_saturation = max_color - min_color;
+	color.rgb = lerp(luma, color.rgb, (1.0 + (coff * (1.0 - (sign(coff) * color_saturation)))));
+	return color;
+}
+
+float3 ColorCorrect(
+	float3 color,
+	float colorSaturation,
+	float colorContrast,
+	float colorGamma,
+	float3 colorGainP,
+	float3 colorGainM)
+{
+	float3 lum = luminance(color);
+	color = max(0, lerp(lum, color, colorSaturation));
+	color = pow(color * (1.0 / 0.18), colorContrast) * 0.18;
+	color = pow(color, colorGamma);
+	color = color * (colorGainP + 1.0 - colorGainM);
+	return color;
+}
+
+float3 ColorCorrect(
+	float3 color,
+	float3 colorSaturation,
+	float3 colorContrast,
+	float3 colorGamma,
+	float3 colorGain,
+	float3 colorOffset)
+{
+	float3 lum = luminance(color);
+	color = max(0, lerp(lum, color, colorSaturation.rgb));
+	color = pow(color * (1.0 / 0.18), colorContrast.rgb) * 0.18;
+	color = pow(color, 1.0 / colorGamma.rgb);
+	color = color * colorGain.rgb + colorOffset.rgb;
+	return max(0, color);
+}
+
+float3 ColorCorrectAll(
+	float3 color,
+	float3 colorSaturation,
+	float3 colorContrast,
+	float3 colorGamma,
+	float3 colorGain,
+	float3 colorOffset,
+
+	float3 colorSaturationShadows,
+	float3 colorContrastShadows,
+	float3 colorGammaShadows,
+	float3 colorGainShadows,
+	float3 colorOffsetShadows,
+
+	float3 colorSaturationMidtones,
+	float3 colorContrastMidtones,
+	float3 colorGammaMidtones,
+	float3 colorGainMidtones,
+	float3 colorOffsetMidtones,
+
+	float3 colorSaturationHighlights,
+	float3 colorContrastHighlights,
+	float3 colorGammaHighlights,
+	float3 colorGainHighlights,
+	float3 colorOffsetHighlights,
+
+	float colorCorrectionShadowsMax,
+	float colorCorrectionHighlightsMin)
+{
+	float3 colorShadows = ColorCorrect(color, 
+		colorContrastShadows*colorContrast, 
+		colorSaturationShadows*colorSaturation, 
+		colorGammaShadows*colorGamma, 
+		colorGainShadows*colorGain, 
+		colorOffsetShadows+colorOffset);
+
+	float3 colorHighlights = ColorCorrect(color, 
+		colorContrastHighlights*colorContrast, 
+		colorSaturationHighlights*colorSaturation, 
+		colorGammaHighlights*colorGamma, 
+		colorGainHighlights*colorGain, 
+		colorOffsetHighlights+colorOffset);
+
+	float3 colorMidtones = ColorCorrect(color, 
+		colorContrastMidtones*colorContrast, 
+		colorSaturationMidtones*colorSaturation, 
+		colorGammaMidtones*colorGamma, 
+		colorGainMidtones*colorGain, 
+		colorOffsetMidtones+colorOffset);
+
+	float weightLuma = luminance(color);
+	float weightShadows = 1 - smoothstep(0, colorCorrectionShadowsMax, weightLuma);
+	float weightHighlights = smoothstep(colorCorrectionHighlightsMin, 1, weightLuma);
+	float weightMidtones = 1 - weightShadows - weightHighlights;
+
+	colorShadows *= weightShadows;
+	colorMidtones *= weightMidtones;
+	colorHighlights *= weightHighlights;
+
+	float3 blend = colorShadows + colorMidtones + colorHighlights;
+	return blend;
+}
+
+float3 NeutralCurve(float3 x, float a, float b, float c, float d, float e, float f)
+{
+	return ((x * (a * x + c * b) + d * e) / (x * (a * x + b) + d * f)) - e / f;
+}
+
+float3 TonemapHejl2015(float3 hdr, float whitePt) 
+{
+	float4 vh = float4(hdr, whitePt);
+	float4 va = 1.425 * vh + 0.05;
+	float4 vf = (vh * va + 0.004) / (vh * (va + 0.55) + 0.0491) - 0.0821;
+	return vf.rgb / vf.www;
+}
+
+float3 TonemapNeutral(float3 x)
+{
+	float a = 0.2;
+	float b = 0.29;
+	float c = 0.24;
+	float d = 0.272;
+	float e = 0.02;
+	float f = 0.3;
+	float whiteLevel = 5.3;
+
+	float3 whiteScale = 1.0 / NeutralCurve(whiteLevel, a, b, c, d, e, f);
+	x = NeutralCurve(x * whiteScale, a, b, c, d, e, f);
+	x *= whiteScale;
+
+	return x;
+}
+
+float3 TonemapHable(float3 x) 
+{
+	float A = 0.15;
+	float B = 0.50;
+	float C = 0.10;
+	float D = 0.20;
+	float E = 0.0;
+	float F = 0.30;
+	return NeutralCurve(x, A, B, C, D, E, F) / NeutralCurve(4.0, A, B, C, D, E, F);
+}
+
+float3 TonemapNaughtyDog(float3 x)
+{		
+	float A = -2586.3655;
+	float B =  0.6900;
+	float C = -767.6706;
+	float D = -8.5706;
+	float E =  2.8784;
+	float F =  107.4683;
+	return NeutralCurve(x, A, B, C, D, E, F);
+}
+
+float3 TonemapReinhardLumaBased(float3 color, float whitePt)
+{
+	float luma = luminance(color);
+	float toneMappedLuma = luma * (1 + luma / (whitePt * whitePt))/ (1 + luma);
+	color *= toneMappedLuma / luma;
+	return color;
+}
+
+float3 RRTAndODTFit(float3 v)
+{
+    float3 a = v * (v + 0.0245786f) - 0.000090537f;
+    float3 b = v * (0.983729f * v + 0.4329510f) + 0.238081f;
+    return a / b;
+}
+
+float3 TonemapACESFit(float3 color)
+{
+    color = mul(RRT_SAT_MAT, mul(sRGB_2_AP1, color));
+	color = RRTAndODTFit(color);
+    color = mul(AP1_2_sRGB, mul(ODT_SAT_MAT, color));
+    return saturate(color);
+}
+
+float3 TonemapACES(float3 color)
+{
+	float3 aces = mul(sRGB_2_AP0, color);
+	float3 oces = RRT(aces);
+	float3 odt = ODT_RGBmonitor(oces);
+	return odt;
+}
+
+float3 ColorToneMapping(float3 color)
+{
+#if HDR_TONEMAP_OPERATOR == 1
+	float3 curr = TonemapReinhardLumaBased(color, 4.0);
+	return saturate(curr);
+#elif HDR_TONEMAP_OPERATOR == 2
+	return saturate(TonemapHable(color));
+#elif HDR_TONEMAP_OPERATOR == 3
+	return saturate(TonemapNeutral(color));
+#elif HDR_TONEMAP_OPERATOR == 4
+	return saturate(TonemapHejl2015(color, 4.0));
+#elif HDR_TONEMAP_OPERATOR == 5
+	return saturate(TonemapACESFit(color * 1.8));
+#elif HDR_TONEMAP_OPERATOR == 6
+	return saturate(TonemapNaughtyDog(color));
+#else
+	return saturate(color);
+#endif
+}
